@@ -259,20 +259,24 @@ window.__ModuleLoader__.load({
     };
 
     const ICONS = buildIcons();
-    const VERSION = '1.0.0';
+    const VERSION = '1.1.0';
 
 // ---- 二相乐园的"物件" ----
 // 面具那一版被否掉了（用户：抓不住重点），相关 SVG 与伪元素一并撤除，
 // 这里只留一条注释，免得以后又有人想把它加回来。
 
+    /**
+     * 只有一个模式：night。
+     * 曾经有 night / off 两个状态，off 会把 dataset.astral 摘掉、整套装饰消失，
+     * 而用户往往不知道自己按了什么。现在干脆取消"关闭"：主题要么被插件管理器
+     * 停用，要么就是开着的。历史遗留的 off 标记在这里顺手清掉。
+     */
     const readMode = () => {
       try {
-        if (localStorage.getItem(AUTO_KEY) === 'off') return 'off';
-        const mode = localStorage.getItem(MODE_KEY);
-        return mode === 'off' ? 'off' : 'night';
-      } catch (err) {
-        return 'night';
-      }
+        if (localStorage.getItem(AUTO_KEY) === 'off') localStorage.removeItem(AUTO_KEY);
+        if (localStorage.getItem(MODE_KEY) === 'off') localStorage.setItem(MODE_KEY, 'night');
+      } catch (err) { /* 隐私模式/被禁用，无所谓 */ }
+      return 'night';
     };
 
     /**
@@ -1213,21 +1217,7 @@ window.__ModuleLoader__.load({
             'display:none;mix-blend-mode:soft-light;opacity:0.9;background:linear-gradient(' +
             '160deg,var(--astral-wash-a) 0,transparent 46%,var(--astral-wash-b) 100%)}' +
             'html[data-astral] .astral-wash{display:block}',
-          // 切换钮：菱形，贴在右缘刻度轨上。点一下夜航/晨昏互换。
-          '.astral-switch{position:fixed;right:13px;top:50%;margin-top:-15px;' +
-            'width:30px;height:30px;padding:0;display:none;align-items:center;' +
-            'justify-content:center;transform:rotate(45deg);cursor:pointer;' +
-            'z-index:9998;background:rgba(10,14,26,0.62);' +
-            'border:1.5px solid var(--astral-hud-line);color:var(--dsw-alias-brand-primary);' +
-            'border-radius:2px;pointer-events:auto;outline:none;' +
-            'transition:box-shadow .18s ease,border-color .18s ease}' +
-            'html[data-astral] .astral-switch{display:flex}' +
-            '.astral-switch>i{transform:rotate(-45deg);font-style:normal;font-size:12px;' +
-            'line-height:1;pointer-events:none}' +
-            '.astral-switch:hover,.astral-switch:focus-visible{' +
-            'box-shadow:0 0 14px -2px var(--astral-hud-line);' +
-            'border-color:var(--astral-msg-accent)}',
-          // 底图入口：设置 → 通用 里的一行，排版照抄宿主自己的偏好行
+                    // 底图入口：设置 → 通用 里的一行，排版照抄宿主自己的偏好行
           // （标题+说明在左、按钮在右、下边框分隔），不再另起一套皮肤。
           '.astral-setrow{display:flex;align-items:center;justify-content:space-between;' +
             'gap:24px;padding:16px 0;border-bottom:.5px solid var(--dsw-alias-border-l2);' +
@@ -1344,9 +1334,12 @@ window.__ModuleLoader__.load({
         let stampTimer = null;
         // 底图入口的挂载函数在下面才定义，这里留一个可空引用，避免 TDZ。
         let mountEntryRef = null;
+        // 自愈回调：paint 定义之后再赋值，stampVersion 每 1.5 秒调一次。
+        let healRef = null;
         const stampVersion = () => {
           try {
             if (mountEntryRef) mountEntryRef();
+            if (healRef) healRef();
             // 过场类万一没被定时器摘掉，就会留下一条静止的金色弧线（.ah-orbit 的 conic 弧）。
             // 这里做兜底：过了 1.4 秒还没有人清，就强制清掉。
             if (hud && hud.classList && typeof hud.classList.contains === 'function') {
@@ -1409,26 +1402,8 @@ window.__ModuleLoader__.load({
           console.warn('[astral] 色调罩挂载失败：', err);
         }
 
-        // ---- 切换钮 ----
-        // 双击 logo 太难发现，这里给一个看得见的入口：右缘一颗金色菱形，
-        // 单击夜航/晨昏互换，Ctrl+Alt+T 同效。
+        // 右缘那颗切换钮已移除（误触会把装饰全关掉），入口只剩 Ctrl+Alt+T 与双击品牌区。
         let sw = null;
-        try {
-          const btn = document.createElement('button');
-          if (btn && typeof btn.setAttribute === 'function') {
-            btn.className = 'astral-switch';
-            btn.setAttribute('type', 'button');
-            btn.setAttribute('aria-label', '切换星穹夜航/晨昏');
-            btn.innerHTML = '<i>\u2600</i>';
-            const swHost = document.body || document.documentElement;
-            if (swHost && typeof swHost.appendChild === 'function') {
-              swHost.appendChild(btn);
-              sw = btn;
-            }
-          }
-        } catch (err) {
-          console.warn('[astral] 切换钮挂载失败：', err);
-        }
 
         /**
          * 把用户选的图缩到 1920 宽、转成 JPEG，再存 localStorage。
@@ -1753,6 +1728,25 @@ window.__ModuleLoader__.load({
           watchScheme();
         };
 
+        /**
+         * 自愈：<html> 上的 dataset.astral 是整套装饰的总开关。
+         * 宿主重排、别的插件动过根节点属性、或一次热重载把它摘掉时，
+         * 装饰会整片消失而控制台什么都不报。这里每 1.5 秒对一次账，
+         * 缺了就补回去，不必让用户再按一次开关。
+         */
+        healRef = () => {
+          const mode = readMode();
+          const want = mode === 'night' ? NIGHT_ID : '';
+          const have = root.dataset.astral || '';
+          if (have === want) return;
+          if (want) root.dataset.astral = want;
+          else delete root.dataset.astral;
+          if (want) {
+            applySurfaceVars(mode);
+            lockScheme();
+          }
+        };
+
         const BUILTIN_IDS = ['system', 'light', 'dark'];
 
         const activeThemeId = () => {
@@ -1836,74 +1830,13 @@ window.__ModuleLoader__.load({
         };
 
         /**
-         * 谁在说话：如果当前激活的是我们自己注册的两套之一，就把它记成模式。
-         * 这样"设置 → 外观 → 选星穹夜航/星穹晨昏"这条原生路径也能切换。
+         * 主题只有一个，切换已成历史。保留这个空函数是因为 theme/change 的订阅还在调它：
+         * 真正的颜色由 paint() 按 mode 决定，宿主偏好换成谁都影响不到画面。
          */
-        const adoptFromTheme = () => {
-          const snapshot = ctx.theme.getTheme();
-          const id = snapshot && snapshot.active && snapshot.active.id;
-          if (id !== NIGHT_ID) return;
-          if (readMode() !== 'night') writeMode('night');
-        };
+        const adoptFromTheme = () => { /* no-op：唯一模式，无需跟随偏好 */ };
 
-        /** 开/关：唯一的手动开关，右缘菱形按钮、快捷键、双击品牌区都走这里。 */
-        const toggleMode = () => {
-          const next = readMode() === 'night' ? 'off' : 'night';
-          writeMode(next);
-          ensureRegistered();
-          paint();
-          reassert();
-          sweep();
-        };
+        // 开关已取消：主题没有 off 状态，停用请走插件管理器，不会再出现"按了什么就全没了"。
 
-        const onDblClick = (event) => {
-          const target = event.target;
-          if (!target || typeof target.closest !== 'function') return;
-          if (!target.closest('[class*="_brandMark"],[class*="_brandIdentity"],[class*="_logoRow"]')) {
-            return;
-          }
-          event.preventDefault();
-          toggleMode();
-        };
-        document.addEventListener('dblclick', onDblClick);
-        const onSwitchClick = (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          // Shift+点击 = 彻底关掉星穹（回到宿主原样）。没有这一步的话，
-          // 一旦 mode 被写成 night，就没有任何入口能退出。
-          if (event.shiftKey) {
-            writeMode('off');
-            paint();
-            return;
-          }
-          toggleMode();
-        };
-        if (sw && typeof sw.addEventListener === 'function') {
-          sw.addEventListener('click', onSwitchClick);
-          ctx.effect(
-            () => () => sw.removeEventListener('click', onSwitchClick),
-            'astral: switch button',
-          );
-        }
-
-        // Ctrl+Alt+T：手不用离开键盘。
-        const onKeyDown = (event) => {
-          if (!event.ctrlKey || !event.altKey) return;
-          if (event.key !== 't' && event.key !== 'T') return;
-          event.preventDefault();
-          toggleMode();
-        };
-        document.addEventListener('keydown', onKeyDown);
-        ctx.effect(
-          () => () => document.removeEventListener('keydown', onKeyDown),
-          'astral: hotkey',
-        );
-
-
-        ctx.effect(
-          () => () => document.removeEventListener('dblclick', onDblClick),
-          'astral: switch listener',
-        );
 
         // 事件是同步派发的，嵌套 publish 不安全，所以合并到下一个宏任务执行。
         let pending = 0;

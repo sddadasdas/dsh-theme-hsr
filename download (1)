@@ -1,0 +1,19 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+_*.mjs
+_*.py
+_*.txt
+
+# 生成底图的原始素材（体积大、含第三方水印，不进仓库）
+assets/src-paradise.jpg
+
+# 未被引用的实验产物
+assets/bg-train.jpg
+assets/bg-train-preview.png
+assets/emblem-watermark.png
+assets/emblem-preview.png
+# 本地备份与旧版素材
+_backup/
+*.with-dawn.js

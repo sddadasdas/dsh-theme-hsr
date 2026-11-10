@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-theme-astral",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "星穹铁道风格的 DeepSeek Harness 主题「星穹·夜航」：深空蓝金配色、54 枚自绘图标、程序生成的星空底图与 HUD 装饰",
