@@ -1,0 +1,39 @@
+{
+  "name": "@local/dsh-theme-astral",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "星穹铁道风格的 DeepSeek Harness 主题「星穹·夜航」：深空蓝金配色、54 枚自绘图标、程序生成的星空底图与 HUD 装饰",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "theme",
+    "astral",
+    "dark-theme"
+  ],
+  "author": "dsh-theme-astral contributors"
+}

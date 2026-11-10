@@ -1,0 +1,4 @@
+# 星穹铁道配色主题：把两个主题条目注册进 Web 端的 theme 运行时。
+- insert:
+    - id: theme-astral
+      name: '@local/dsh-theme-astral'
